@@ -1,7 +1,7 @@
-import React, { Component } from 'react';
-import { StyleSheet, View, AppRegistry } from 'react-native';
-import StaticContainer from 'static-container';
-import PropTypes from 'prop-types';
+import React, { Component } from "react";
+import { StyleSheet, View, AppRegistry } from "react-native";
+import StaticContainer from "static-container";
+import PropTypes from "prop-types";
 
 const styles = StyleSheet.create({
   container: {
@@ -14,8 +14,8 @@ class Provider extends Component {
     store: PropTypes.shape({
       subscribe: PropTypes.func.isRequired,
       dispatch: PropTypes.func.isRequired,
-      getState: PropTypes.func.isRequired,
-    }),
+      getState: PropTypes.func.isRequired
+    })
   };
 
   getChildContext() {
@@ -27,34 +27,31 @@ class Provider extends Component {
   }
 }
 
-AppRegistry.setWrapperComponentProvider(function() {
-  return function RootSiblingsWrapper(props) {
-    return (
-      <View style={styles.container}>
-        {props.children}
-        <RootSiblings />
-      </View>
-    );
-  };
-});
+if (!global.__rootSiblingsInjected) {
+  AppRegistry.setWrapperComponentProvider(function() {
+    return function RootSiblingsWrapper(props) {
+      return (
+        <View style={styles.container}>
+          {props.children}
+          <RootSiblings />
+        </View>
+      );
+    };
+  });
+  global.__rootSiblingsInjected = true;
+}
 
 let uuid = 0;
 const triggers = [];
-const pendingSiblings = {};
 class RootSiblings extends Component {
   _updatedSiblings = {};
   _siblings = {};
   _stores = {};
 
-  componentDidMount() {
+  constructor(props) {
+    super(props);
+    this._siblings = {};
     triggers.push(this._update);
-    Object.keys(pendingSiblings).forEach((id) => {
-      const sibling = pendingSiblings[id];
-      if (sibling) {
-        this._update(id, ...sibling);
-        delete pendingSiblings[id];
-      }
-    });
   }
 
   componentWillUnmount() {
@@ -85,7 +82,10 @@ class RootSiblings extends Component {
       const element = siblings[key];
       if (element) {
         const sibling = (
-          <StaticContainer key={`root-sibling-${key}`} shouldUpdate={!!this._updatedSiblings[key]}>
+          <StaticContainer
+            key={`root-sibling-${key}`}
+            shouldUpdate={!!this._updatedSiblings[key]}
+          >
             {element}
           </StaticContainer>
         );
@@ -111,23 +111,15 @@ export default class RootSiblingManager {
   constructor(element, callback, store) {
     const id = uuid++;
     function update(element, callback, store) {
-      if (triggers.length) {
-        triggers.forEach(function(trigger) {
-          trigger(id, element, callback, store);
-        });
-      } else {
-        pendingSiblings[id] = [element, callback, store];
-      }
+      triggers.forEach(function(trigger) {
+        trigger(id, element, callback, store);
+      });
     }
 
     function destroy(callback) {
-      if (pendingSiblings[id]) {
-        delete pendingSiblings[id];
-      } else {
-        triggers.forEach(function(trigger) {
-          trigger(id, null, callback);
-        });
-      }
+      triggers.forEach(function(trigger) {
+        trigger(id, null, callback);
+      });
     }
 
     update(element, callback, store);
